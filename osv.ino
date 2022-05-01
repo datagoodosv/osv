@@ -6,7 +6,7 @@ using namespace std;
 //Black-Orange-Red-White
 //Macros
 #define DISTANCE_TOLERANCE 0.05
-#define THETA_TOLERANCE PI/18. //10 degrees of tolerance
+#define THETA_TOLERANCE PI/36. //5 degrees of tolerance
 #define ARUCO_NUMBER 19
 #define WIFI_TX 9
 #define WIFI_RX 8
@@ -19,11 +19,10 @@ using namespace std;
 #define RIGHT_MOTOR_2 4
 #define ULTRASONIC_FRONT_TRIG 14
 #define ULTRASONIC_FRONT_ECHO 15
-#define MOTION_INTERVAL_MS 100
-#define DEFAULT_TURNING_DURATION 200
 #define DEFAULT_SPEED 150
 #define LOWERED_SERVO_VALUE 173
 #define RAISED_SERVO_VALUE 110
+#define DEFAULT_TURNING_DURATION 300
 #define PWM_PIN 16
 #define MISSION_SITE_APPROACH_TOLERANCE_M 0.02
 #define CENTER_TO_SENSOR .2475
@@ -148,8 +147,7 @@ double angle(std::vector<double> one, double theta) {
   std::vector<double> vec;
   vec.push_back(cos(theta));
   vec.push_back(sin(theta));
-  double real_angle = abs(angle(one, vec)) < abs(angle(vec, one)) ? angle(one, vec) : angle(vec, one);
-  return real_angle;
+  return angle(one, vec);
 }
 
 void orient_to_heading(std::vector<double> heading) {
@@ -165,7 +163,7 @@ void orient_to_heading(std::vector<double> heading) {
     } else {
       turn_right(DEFAULT_SPEED);
     }
-    delay(abs(angle(heading, get_theta())) * DEFAULT_TURNING_DURATION);
+    delay(pow(abs(angle(heading, get_theta())), 0.5) * DEFAULT_TURNING_DURATION);
     halt();
     while (!Enes100.updateLocation()) {
      
@@ -307,9 +305,9 @@ void lower_arm() {
   std::vector<double> mission_site_coords = {0.55};
   while (!Enes100.updateLocation()) {}
   if (get_y() < 1.0) {
-    mission_site_coords.push_back(1.45 - CENTER_TO_SENSOR);
+    mission_site_coords.push_back(1.2);
   } else {
-    mission_site_coords.push_back(0.55 + CENTER_TO_SENSOR);
+    mission_site_coords.push_back(0.8);
   }
   return mission_site_coords;
  }
@@ -333,6 +331,7 @@ int compute_rumble_index(std::vector<double> arena_map) {
 }
 
 void loop() {
+  raise_arm();
   /*  Plan
    *   Compute mission site coords
    *   Go to mission site
@@ -347,20 +346,23 @@ void loop() {
    *   Execute
    * 
    */
+
   //Start STEP 1
   std::vector<double> mission_site_coords = compute_mission_site_coords();
   //Step 1 DONE
   //Start STEP 2
   while (!Enes100.updateLocation()) {}
   while (norm(get_heading(mission_site_coords), 2) > MISSION_SITE_APPROACH_TOLERANCE_M) {
+    raise_arm();
     print_location();
-    while (!Enes100.updateLocation()) {
-     
-    }
+    while (!Enes100.updateLocation()) {}
     update_motors_with_target(mission_site_coords, norm(get_heading(mission_site_coords), 2) * 1000);
   }
   while (!Enes100.updateLocation()) {}
   orient_to_heading(get_heading(mission_site_coords));
+  lower_arm();
+
+  
   /*
 
   //Step 2 DONE
