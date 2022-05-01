@@ -41,6 +41,7 @@ void setup() {
   }
   
   // Initialize Enes100 Library
+  myservo.attach(SERVO_OUT);
   // Team Name, Mission Type, Marker ID, TX Pin, RX Pin
  
   //pinMode(ULTRASONIC_FRONT_ECHO, INPUT);
@@ -283,12 +284,10 @@ void wait_forever() {
  }
 
 void raise_arm() {
-  myservo.attach(SERVO_OUT);
   myservo.write(RAISED_SERVO_VALUE);
 }
 
 void lower_arm() {
-  myservo.attach(SERVO_OUT);
   myservo.write(LOWERED_SERVO_VALUE);
 }
 
