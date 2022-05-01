@@ -6,22 +6,22 @@ using namespace std;
 //Black-Orange-Red-White
 //Macros
 #define DISTANCE_TOLERANCE 0.05
-#define THETA_TOLERANCE PI/60. //10 degrees of tolerance
+#define THETA_TOLERANCE PI/18. //10 degrees of tolerance
 #define ARUCO_NUMBER 19
 #define WIFI_TX 9
 #define WIFI_RX 8
-#define SERVO_OUT 7
+#define SERVO_OUT 3
 #define LEFT_ENABLE 5
 #define RIGHT_ENABLE 6
 #define LEFT_MOTOR_1 10
 #define LEFT_MOTOR_2 11
-#define RIGHT_MOTOR_1 3
+#define RIGHT_MOTOR_1 7
 #define RIGHT_MOTOR_2 4
 #define ULTRASONIC_FRONT_TRIG 14
 #define ULTRASONIC_FRONT_ECHO 15
 #define MOTION_INTERVAL_MS 100
-#define DEFAULT_TURNING_DURATION 100
-#define DEFAULT_SPEED 100
+#define DEFAULT_TURNING_DURATION 200
+#define DEFAULT_SPEED 150
 #define LOWERED_SERVO_VALUE 173
 #define RAISED_SERVO_VALUE 110
 #define PWM_PIN 16
@@ -41,8 +41,6 @@ void setup() {
     Enes100.println("Unable to update Location");
   }
   
-  //Servo init
-  myservo.attach(SERVO_OUT);
   // Initialize Enes100 Library
   // Team Name, Mission Type, Marker ID, TX Pin, RX Pin
  
@@ -50,7 +48,7 @@ void setup() {
   pinMode(ULTRASONIC_FRONT_TRIG, OUTPUT);
   pinMode(LEFT_ENABLE, OUTPUT);
   pinMode(RIGHT_ENABLE, OUTPUT);
-  pinMode(VOLTAGE_IN_PIN, INPUT);
+  pinMode(PWM_PIN, INPUT);
   Serial.begin(9600);
 }
 
@@ -150,7 +148,8 @@ double angle(std::vector<double> one, double theta) {
   std::vector<double> vec;
   vec.push_back(cos(theta));
   vec.push_back(sin(theta));
-  return angle(one, vec);
+  double real_angle = abs(angle(one, vec)) < abs(angle(vec, one)) ? angle(one, vec) : angle(vec, one);
+  return real_angle;
 }
 
 void orient_to_heading(std::vector<double> heading) {
@@ -161,12 +160,12 @@ void orient_to_heading(std::vector<double> heading) {
   }
   while (abs(angle(heading, get_theta())) > THETA_TOLERANCE) {
     current_angle = angle(heading, get_theta());
-    if (current_angle > PI) {
+    if (current_angle > 0) {
       turn_left(DEFAULT_SPEED);
     } else {
       turn_right(DEFAULT_SPEED);
     }
-    delay(DEFAULT_TURNING_DURATION);
+    delay(abs(angle(heading, get_theta())) * DEFAULT_TURNING_DURATION);
     halt();
     while (!Enes100.updateLocation()) {
      
@@ -286,10 +285,12 @@ void wait_forever() {
  }
 
 void raise_arm() {
+  myservo.attach(SERVO_OUT);
   myservo.write(RAISED_SERVO_VALUE);
 }
 
 void lower_arm() {
+  myservo.attach(SERVO_OUT);
   myservo.write(LOWERED_SERVO_VALUE);
 }
 
@@ -306,9 +307,9 @@ void lower_arm() {
   std::vector<double> mission_site_coords = {0.55};
   while (!Enes100.updateLocation()) {}
   if (get_y() < 1.0) {
-    mission_site_coords.push_back(1.45);
+    mission_site_coords.push_back(1.45 - CENTER_TO_SENSOR);
   } else {
-    mission_site_coords.push_back(0.55);
+    mission_site_coords.push_back(0.55 + CENTER_TO_SENSOR);
   }
   return mission_site_coords;
  }
@@ -347,7 +348,7 @@ void loop() {
    * 
    */
   //Start STEP 1
-  std::vector<double> mission_site_coords = compute_mission_site_coordinates();
+  std::vector<double> mission_site_coords = compute_mission_site_coords();
   //Step 1 DONE
   //Start STEP 2
   while (!Enes100.updateLocation()) {}
@@ -356,10 +357,12 @@ void loop() {
     while (!Enes100.updateLocation()) {
      
     }
-    update_motors_with_target(mission_site_coordinates, norm(get_heading(mission_site_coordinates), 2) * 1000);
+    update_motors_with_target(mission_site_coords, norm(get_heading(mission_site_coords), 2) * 1000);
   }
   while (!Enes100.updateLocation()) {}
   orient_to_heading(get_heading(mission_site_coords));
+  /*
+
   //Step 2 DONE
   //Start STEP 3
   lower_arm();
@@ -408,5 +411,6 @@ void loop() {
     }
     update_motors_with_target(target_coords, 500);
   }
+  */
   delay(10000000);
 }
