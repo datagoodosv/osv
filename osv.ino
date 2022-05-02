@@ -6,7 +6,7 @@ using namespace std;
 //Black-Orange-Red-White
 //Macros
 #define DISTANCE_TOLERANCE 0.05
-#define THETA_TOLERANCE PI/36. //5 degrees of tolerance
+#define THETA_TOLERANCE PI/60. //3 degrees of tolerance
 #define ARUCO_NUMBER 19
 #define WIFI_TX 9
 #define WIFI_RX 8
@@ -22,7 +22,7 @@ using namespace std;
 #define DEFAULT_SPEED 150
 #define LOWERED_SERVO_VALUE 173
 #define RAISED_SERVO_VALUE 110
-#define DEFAULT_TURNING_DURATION 200
+#define DEFAULT_TURNING_DURATION 70
 #define PWM_PIN 16
 #define MISSION_SITE_APPROACH_TOLERANCE_M 0.02
 #define CENTER_TO_SENSOR .2475
@@ -41,10 +41,9 @@ void setup() {
   }
   
   // Initialize Enes100 Library
-  myservo.attach(SERVO_OUT);
   // Team Name, Mission Type, Marker ID, TX Pin, RX Pin
  
-  //pinMode(ULTRASONIC_FRONT_ECHO, INPUT);
+  pinMode(ULTRASONIC_FRONT_ECHO, INPUT);
   pinMode(ULTRASONIC_FRONT_TRIG, OUTPUT);
   pinMode(LEFT_ENABLE, OUTPUT);
   pinMode(RIGHT_ENABLE, OUTPUT);
@@ -284,11 +283,15 @@ void wait_forever() {
  }
 
 void raise_arm() {
+  myservo.attach(SERVO_OUT);
   myservo.write(RAISED_SERVO_VALUE);
+  myservo.detach(SERVO_OUT);
 }
 
 void lower_arm() {
+  myservo.attach(SERVO_OUT);
   myservo.write(LOWERED_SERVO_VALUE);
+  myservo.detach(SERVO_OUT);
 }
 
 /*
@@ -313,6 +316,7 @@ void lower_arm() {
 
 double wait_on_contact() {
   while (read_cycle() < 1000) {
+    lower_arm();
   }
   return read_cycle() / 1000;
 }
@@ -359,13 +363,13 @@ void loop() {
   }
   while (!Enes100.updateLocation()) {}
   orient_to_heading(get_heading(mission_site_coords));
-  lower_arm();
-
   
-  /*
+  
 
   //Step 2 DONE
   //Start STEP 3
+  lower_arm();
+  lower_arm();
   lower_arm();
   //Step 3 DONE
   //Start STEP 4 & STEP 5
@@ -373,7 +377,7 @@ void loop() {
   double duty_cycle = wait_on_contact();
   halt();
   //Step 4 DONE & Step 5 DONE
-
+  /*
   //INSERT STEP 6 HERE
 
   //Start STEP 7
