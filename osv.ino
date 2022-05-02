@@ -30,6 +30,9 @@ using namespace std;
 Servo myservo;
 void setup() {
   
+  while(!Enes100.begin("DATA TEAM (REAL)", DATA, ARUCO_NUMBER, WIFI_TX, WIFI_RX)) {
+    Enes100.println("Unable to connect to simulation");
+  }
   
   // Initialize Enes100 Library
   // Team Name, Mission Type, Marker ID, TX Pin, RX Pin
@@ -294,7 +297,7 @@ void lower_arm() {
  */
 
  std::vector<double> compute_mission_site_coords() {
-  std::vector<double> mission_site_coords = {0.53};
+  std::vector<double> mission_site_coords = {0.55};
   while (!Enes100.updateLocation()) {}
   if (get_y() < 1.0) {
     mission_site_coords.push_back(1.2);
@@ -350,7 +353,10 @@ void make_contact_and_transmit() {
   halt();
   transmit_duty_cycle(cycle_percentage);
   transmit_magnetism(get_site_magnetism());
+  raise_arm();
   backwards(150);
+  delay(500);
+  turn_right(150);
   delay(500);
   halt();
 }
@@ -358,10 +364,30 @@ void make_contact_and_transmit() {
 boolean get_site_magnetism(void);
 
 void loop() {
-  transmit_duty_cycle(90);
-  while(!Enes100.begin("DATA TEAM (REAL)", DATA, ARUCO_NUMBER, WIFI_TX, WIFI_RX)) {
-    Enes100.println("Unable to connect to simulation");
+  raise_arm();
+  std::vector<double> mission_site_coords = compute_mission_site_coords();
+  while (!Enes100.updateLocation()) {}
+  while (norm(get_heading(mission_site_coords), 2) > MISSION_SITE_APPROACH_TOLERANCE_M) {
+    while (!Enes100.updateLocation()) {}
+    update_motors_with_target(mission_site_coords, norm(get_heading(mission_site_coords), 2) * 1000);
   }
   make_contact_and_transmit();
+  std::vector<double> arena_map = map_arena();
+  int rumble_index = compute_rumble_index(arena_map);
+  std::vector<double> target_coords = {1.0, 0.5 * (1.0 + rumble_index)};
+  while (!Enes100.updateLocation()) {}
+  while (norm(get_heading(target_coords), 2) > DISTANCE_TOLERANCE) {
+    while (!Enes100.updateLocation()) {}
+      update_motors_with_target(target_coords, 250);
+  }
+  target_coords[0] += 2.0;
+  while (!Enes100.updateLocation()) {}
+  while (norm(get_heading(target_coords), 2) > DISTANCE_TOLERANCE) {
+    if (norm(get_heading(target_coords), 2) < 0.5) {
+      lower_arm();
+    }
+    while (!Enes100.updateLocation()) {}
+    update_motors_with_target(target_coords, 500);
+  }
   delay(600000);
 }
