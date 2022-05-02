@@ -30,19 +30,11 @@ using namespace std;
 Servo myservo;
 void setup() {
   
-  while(!Enes100.begin("DATA TEAM (REAL)", DATA, ARUCO_NUMBER, WIFI_TX, WIFI_RX)) {
-    Enes100.println("Unable to connect to simulation");
-  }
-
-  Enes100.println("Starting Navigation");
-
-  while (!Enes100.updateLocation()) {
-    Enes100.println("Unable to update Location");
-  }
   
   // Initialize Enes100 Library
   // Team Name, Mission Type, Marker ID, TX Pin, RX Pin
  
+  myservo.attach(SERVO_OUT);
   pinMode(ULTRASONIC_FRONT_ECHO, INPUT);
   pinMode(ULTRASONIC_FRONT_TRIG, OUTPUT);
   pinMode(LEFT_ENABLE, OUTPUT);
@@ -283,13 +275,13 @@ void wait_forever() {
  }
 
 void raise_arm() {
-  myservo.attach(SERVO_OUT);
   myservo.write(RAISED_SERVO_VALUE);
+  delay(1000);
 }
 
 void lower_arm() {
-  myservo.attach(SERVO_OUT);
   myservo.write(LOWERED_SERVO_VALUE);
+  delay(1000);
 }
 
 /*
@@ -312,11 +304,11 @@ void lower_arm() {
   return mission_site_coords;
  }
 
-double wait_on_contact() {
+int wait_on_contact() {
   while (read_cycle() < 1000) {
     lower_arm();
   }
-  return read_cycle() / 1000;
+  return round(read_cycle() / 1000) * 10;
 }
 
 int compute_rumble_index(std::vector<double> arena_map) {
@@ -331,87 +323,45 @@ int compute_rumble_index(std::vector<double> arena_map) {
   return index;
 }
 
-void loop() {
-  /*  Plan
-   *   Compute mission site coords
-   *   Go to mission site
-   *   Lower arm
-   *   Make contact
-   *   Execute data collection routine
-   *   Transmit results
-   *   Lift arm
-   *   Back away for a couple hundred ms
-   *   execute map_arena() routine
-   *   Compute path to end of arena
-   *   Execute
-   * 
-   */
+void transmit_duty_cycle(int cycle_percent_value) {
+  Enes100.mission(CYCLE, cycle_percent_value);
+}
 
-  //Start STEP 1
-  std::vector<double> mission_site_coords = compute_mission_site_coords();
-  //Step 1 DONE
-  //Start STEP 2
+void transmit_magnetism(boolean is_magnetic) {
+  Enes100.mission(MAGNETISM, is_magnetic ? MAGNETIC : NOT_MAGNETIC);
+}
+
+void make_contact_and_transmit() {
+  double lower_threshold = 0.05;
+  double upper_threshold = 0.15;
   raise_arm();
-  while (!Enes100.updateLocation()) {}
-  while (norm(get_heading(mission_site_coords), 2) > MISSION_SITE_APPROACH_TOLERANCE_M) {
-    raise_arm();
-    print_location();
-    while (!Enes100.updateLocation()) {}
-    update_motors_with_target(mission_site_coords, norm(get_heading(mission_site_coords), 2) * 1000);
-  }
-  while (!Enes100.updateLocation()) {}
-  orient_to_heading(get_heading(mission_site_coords));
-  
-  
-
-  //Step 2 DONE
-  //Start STEP 3
-  lower_arm();
-  //Step 3 DONE
-  //Start STEP 4 & STEP 5
-  forwards(100);
-  double duty_cycle = wait_on_contact();
+  turn_right(150);
+  delay(350);
   halt();
-  //Step 4 DONE & Step 5 DONE
-  /*
-  //INSERT STEP 6 HERE
-
-  //Start STEP 7
   raise_arm();
-  //Step 7 DONE
-
-  //Start STEP 8
-  backwards(100);
+  while (read_from_front_ultrasonic() < lower_threshold || read_from_front_ultrasonic() > upper_threshold) {
+    turn_left(150);
+    delay(75);
+  }
+  halt();
+  lower_arm();
+  forwards(150);
+  int cycle_percentage = wait_on_contact();
+  halt();
+  transmit_duty_cycle(cycle_percentage);
+  transmit_magnetism(get_site_magnetism());
+  backwards(150);
   delay(500);
-  //Step 8 DONE
+  halt();
+}
 
-  //Start STEP 9
-  std::vector<double> arena_map = map_arena();
-  //Step 9 DONE
+boolean get_site_magnetism(void);
 
-  //Start STEP 10
-  int rumble_index = compute_rumble_index(arena_map);
-  std::vector<double> target_coords = {1.0, 0.5 * (1.0 + rumble_index)};
-  while (!Enes100.updateLocation()) {}
-  while (norm(get_heading(target_coords), 2) > DISTANCE_TOLERANCE) {
-    print_location();
-    while (!Enes100.updateLocation()) {
-     
-    }
-    update_motors_with_target(target_coords, 250);
+void loop() {
+  transmit_duty_cycle(90);
+  while(!Enes100.begin("DATA TEAM (REAL)", DATA, ARUCO_NUMBER, WIFI_TX, WIFI_RX)) {
+    Enes100.println("Unable to connect to simulation");
   }
-  target_coords[0] += 2.0;
-  while (!Enes100.updateLocation()) {}
-  while (norm(get_heading(target_coords), 2) > DISTANCE_TOLERANCE) {
-    if (norm(get_heading(target_coords), 2) < 0.5) {
-      lower_arm();
-    }
-    print_location();
-    while (!Enes100.updateLocation()) {
-     
-    }
-    update_motors_with_target(target_coords, 500);
-  }
-  */
-  delay(10000000);
+  make_contact_and_transmit();
+  delay(600000);
 }
