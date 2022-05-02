@@ -6,7 +6,7 @@ using namespace std;
 //Black-Orange-Red-White
 //Macros
 #define DISTANCE_TOLERANCE 0.05
-#define THETA_TOLERANCE PI/60. //3 degrees of tolerance
+#define THETA_TOLERANCE PI/180. //1 degree of tolerance
 #define ARUCO_NUMBER 19
 #define WIFI_TX 9
 #define WIFI_RX 8
@@ -285,13 +285,11 @@ void wait_forever() {
 void raise_arm() {
   myservo.attach(SERVO_OUT);
   myservo.write(RAISED_SERVO_VALUE);
-  myservo.detach(SERVO_OUT);
 }
 
 void lower_arm() {
   myservo.attach(SERVO_OUT);
   myservo.write(LOWERED_SERVO_VALUE);
-  myservo.detach(SERVO_OUT);
 }
 
 /*
@@ -304,7 +302,7 @@ void lower_arm() {
  */
 
  std::vector<double> compute_mission_site_coords() {
-  std::vector<double> mission_site_coords = {0.55};
+  std::vector<double> mission_site_coords = {0.53};
   while (!Enes100.updateLocation()) {}
   if (get_y() < 1.0) {
     mission_site_coords.push_back(1.2);
@@ -334,7 +332,6 @@ int compute_rumble_index(std::vector<double> arena_map) {
 }
 
 void loop() {
-  raise_arm();
   /*  Plan
    *   Compute mission site coords
    *   Go to mission site
@@ -354,6 +351,7 @@ void loop() {
   std::vector<double> mission_site_coords = compute_mission_site_coords();
   //Step 1 DONE
   //Start STEP 2
+  raise_arm();
   while (!Enes100.updateLocation()) {}
   while (norm(get_heading(mission_site_coords), 2) > MISSION_SITE_APPROACH_TOLERANCE_M) {
     raise_arm();
@@ -368,8 +366,6 @@ void loop() {
 
   //Step 2 DONE
   //Start STEP 3
-  lower_arm();
-  lower_arm();
   lower_arm();
   //Step 3 DONE
   //Start STEP 4 & STEP 5
