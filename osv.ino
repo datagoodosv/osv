@@ -26,6 +26,10 @@ using namespace std;
 #define PWM_PIN 16
 #define MISSION_SITE_APPROACH_TOLERANCE_M 0.02
 #define CENTER_TO_SENSOR .2475
+#define HALL_PIN 2
+
+boolean is_magnetic;
+int hallcycles;
 
 Servo myservo;
 void setup() {
@@ -43,6 +47,15 @@ void setup() {
   pinMode(LEFT_ENABLE, OUTPUT);
   pinMode(RIGHT_ENABLE, OUTPUT);
   pinMode(PWM_PIN, INPUT);
+
+  // MANGETIC FIELD DETECTOR CODE
+  hallcycles = 0;
+  is_magnetic = false;
+  pinMode(HALL_PIN, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(HALL_PIN), magnet_detect, RISING);
+  
+
+  
   Serial.begin(9600);
 }
 
@@ -361,8 +374,15 @@ void make_contact_and_transmit() {
   halt();
 }
 
+// MAGNETIC FIELD CODE
+void magnet_detect(void) {
+  hallcycles++;
+  
+  is_magnetic = true;
+}
+  
 boolean get_site_magnetism(void) {
-  return true;
+  return is_magnetic;
 }
 
 void loop() {
@@ -393,3 +413,5 @@ void loop() {
   }
   delay(600000);
 }
+
+
