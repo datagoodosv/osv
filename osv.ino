@@ -361,7 +361,9 @@ void make_contact_and_transmit() {
   halt();
 }
 
-boolean get_site_magnetism(void);
+boolean get_site_magnetism(void) {
+  return true;
+}
 
 void loop() {
   raise_arm();
