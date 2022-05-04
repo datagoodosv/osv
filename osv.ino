@@ -438,6 +438,7 @@ void loop() {
   
   //Traversal + Limbo mission START
   Enes100.println("Mapping arena...");
+  raise_arm();
   std::vector<double> arena_map = map_arena();
   int rumble_index = compute_rumble_index(arena_map);
   std::vector<double> target_coords = {1.0, 0.5 + 0.5*rumble_index};
