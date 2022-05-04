@@ -6,7 +6,7 @@ using namespace std;
 //Black-Orange-Red-White
 //Macros
 #define DISTANCE_TOLERANCE 0.05
-#define THETA_TOLERANCE PI/180. //1 degree of tolerance
+#define THETA_TOLERANCE PI/60. //3 degrees of tolerance
 #define ARUCO_NUMBER 19
 #define WIFI_TX 9
 #define WIFI_RX 8
@@ -20,22 +20,18 @@ using namespace std;
 #define ULTRASONIC_FRONT_TRIG 14
 #define ULTRASONIC_FRONT_ECHO 15
 #define DEFAULT_SPEED 150
-#define LOWERED_SERVO_VALUE 173
+#define LOWERED_SERVO_VALUE 170
 #define RAISED_SERVO_VALUE 110
-#define DEFAULT_TURNING_DURATION 70
+#define DEFAULT_TURNING_DURATION 150
 #define PWM_PIN 16
 #define MISSION_SITE_APPROACH_TOLERANCE_M 0.02
 #define CENTER_TO_SENSOR .2475
-#define HALL_PIN 2
-
-boolean is_magnetic;
-int hallcycles;
 
 Servo myservo;
 void setup() {
   
   while(!Enes100.begin("DATA TEAM (REAL)", DATA, ARUCO_NUMBER, WIFI_TX, WIFI_RX)) {
-    Enes100.println("Unable to connect to simulation");
+    Enes100.println("Unable to connect to wifi");
   }
   
   // Initialize Enes100 Library
@@ -47,15 +43,6 @@ void setup() {
   pinMode(LEFT_ENABLE, OUTPUT);
   pinMode(RIGHT_ENABLE, OUTPUT);
   pinMode(PWM_PIN, INPUT);
-
-  // MANGETIC FIELD DETECTOR CODE
-  hallcycles = 0;
-  is_magnetic = false;
-  pinMode(HALL_PIN, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(HALL_PIN), magnet_detect, RISING);
-  
-
-  
   Serial.begin(9600);
 }
 
@@ -313,18 +300,19 @@ void lower_arm() {
   std::vector<double> mission_site_coords = {0.55};
   while (!Enes100.updateLocation()) {}
   if (get_y() < 1.0) {
-    mission_site_coords.push_back(1.2);
+    mission_site_coords.push_back(1.17);
   } else {
-    mission_site_coords.push_back(0.8);
+    mission_site_coords.push_back(0.83);
   }
   return mission_site_coords;
  }
 
 int wait_on_contact() {
-  while (read_cycle() < 1000) {
-    lower_arm();
+  double cycle_value = read_cycle(); 
+  while (cycle_value < 1000) {
+    cycle_value = read_cycle();
   }
-  return round(read_cycle() / 1000) * 10;
+  return round(cycle_value / 1000) * 10;
 }
 
 int compute_rumble_index(std::vector<double> arena_map) {
@@ -348,22 +336,34 @@ void transmit_magnetism(boolean is_magnetic) {
 }
 
 void make_contact_and_transmit() {
+  Enes100.println("Hunting for mission site. It must be nearby!");
   double lower_threshold = 0.05;
   double upper_threshold = 0.15;
   raise_arm();
   turn_right(150);
-  delay(350);
+  delay(750);
   halt();
   raise_arm();
+  Enes100.println("Rotating to site...");
   while (read_from_front_ultrasonic() < lower_threshold || read_from_front_ultrasonic() > upper_threshold) {
     turn_left(150);
-    delay(75);
+    delay(15);
   }
+  delay(80);
   halt();
+  Enes100.println("Gotcha!!!");
   lower_arm();
   forwards(150);
   int cycle_percentage = wait_on_contact();
+  double voltage_value = 0, n = 50;
+  for (int i = 0; i < (int)n; i++) {
+    voltage_value += read_cycle(10);
+  }
+  voltage_value /= n;
+  voltage_value /= 1000;
+  cycle_percentage = round(voltage_value) * 10;
   halt();
+  Enes100.println("Made contact.");
   transmit_duty_cycle(cycle_percentage);
   transmit_magnetism(get_site_magnetism());
   raise_arm();
@@ -372,20 +372,15 @@ void make_contact_and_transmit() {
   turn_right(150);
   delay(500);
   halt();
+  Enes100.println("Data collected.");
 }
 
-// MAGNETIC FIELD CODE
-void magnet_detect(void) {
-  hallcycles++;
-  
-  is_magnetic = true;
-}
-  
 boolean get_site_magnetism(void) {
-  return is_magnetic;
+  return true;
 }
 
 void loop() {
+  Enes100.println("Navigating to general vicinity of mission site...");
   raise_arm();
   std::vector<double> mission_site_coords = compute_mission_site_coords();
   while (!Enes100.updateLocation()) {}
@@ -413,5 +408,3 @@ void loop() {
   }
   delay(600000);
 }
-
-
