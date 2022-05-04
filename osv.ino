@@ -423,6 +423,7 @@ boolean get_site_magnetism(void) {
 }
 
 void loop() {
+  //Data collection mission START
   Enes100.println("Navigating to general vicinity of mission site...");
   raise_arm();
   std::vector<double> mission_site_coords = compute_mission_site_coords();
@@ -432,6 +433,10 @@ void loop() {
     update_motors_with_target(mission_site_coords, compute_speed_multiplier(get_heading(mission_site_coords)));
   }
   make_contact_and_transmit();
+  //Data collection mission FINISH
+
+  
+  //Traversal + Limbo mission START
   Enes100.println("Mapping arena...");
   std::vector<double> arena_map = map_arena();
   int rumble_index = compute_rumble_index(arena_map);
@@ -462,5 +467,7 @@ void loop() {
     while (!Enes100.updateLocation()) {}
     update_motors_with_target(limbo_target, compute_speed_multiplier(get_heading(limbo_target)));
   }
+  //Traversal + Limbo mission FINISH
+  
   delay(600000);
 }
