@@ -167,6 +167,11 @@ void orient_to_heading(std::vector<double> heading) {
 }
 
 void update_motors_with_target(std::vector<double> target, int duration_ms) {
+  Enes100.print("Heading to (");
+  Enes100.print(target[0]);
+  Enes100.print(", ");
+  Enes100.print(target[1]);
+  Enes100.println(")");
   std::vector<double> heading = get_heading(target);
   orient_to_heading(heading);
   forwards(DEFAULT_SPEED);
@@ -244,6 +249,10 @@ void wait_forever() {
  *
  */
 
+double compute_speed_multiplier(std::vector<double> heading) {
+  return norm(heading, 2) * 1000;
+}
+
  std::vector<double> map_arena() {
   //Navigate to (1, 0.5), (1, 1.0), (1, 1.5)
   //After each arrival, orient to theta 0, take 3 readings from ultrasonic, average them together, and save them
@@ -251,29 +260,26 @@ void wait_forever() {
   std::vector<std::vector<double>> coords = {{1.0, 0.5}, {1.0, 1.0}, {1.0, 1.5}};
   std::vector<double> plus_x = {1.0, 0.0};
   while (norm(get_heading(coords[0]), 2) > 0.03) {
-    print_location();
     while (!Enes100.updateLocation()) {}
-    update_motors_with_target(coords[0], norm(get_heading(coords[0]), 2) * 1000);
+    update_motors_with_target(coords[0], compute_speed_multiplier(get_heading(coords[0])));
   }
   orient_to_heading(plus_x);
   arena_map.push_back((read_from_front_ultrasonic() + read_from_front_ultrasonic() + read_from_front_ultrasonic()) / 3.0);
   
   while (norm(get_heading(coords[1]), 2) > 0.03) {
-    print_location();
     while (!Enes100.updateLocation()) {}
-    update_motors_with_target(coords[1], norm(get_heading(coords[1]), 2) * 1000);
+    update_motors_with_target(coords[1], compute_speed_multiplier(get_heading(coords[1])));
   }
   orient_to_heading(plus_x);
   arena_map.push_back((read_from_front_ultrasonic() + read_from_front_ultrasonic() + read_from_front_ultrasonic()) / 3.0);
   
   while (norm(get_heading(coords[2]), 2) > 0.03) {
-    print_location();
     while (!Enes100.updateLocation()) {}
-    update_motors_with_target(coords[2], norm(get_heading(coords[2]), 2) * 1000);
+    update_motors_with_target(coords[2], compute_speed_multiplier(get_heading(coords[2])));
   }
   orient_to_heading(plus_x);
   arena_map.push_back((read_from_front_ultrasonic() + read_from_front_ultrasonic() + read_from_front_ultrasonic()) / 3.0);
-
+  Enes100.println("Finished mapping arena.");
   return arena_map;
  }
 
@@ -315,6 +321,22 @@ int wait_on_contact() {
   return round(cycle_value / 1000) * 10;
 }
 
+int get_actual_cycle_percentage() {
+  std::vector<int> cycle_values;
+  cycle_values.push_back(round(read_cycle()/1000)*10);
+  delay(33);
+  cycle_values.push_back(round(read_cycle()/1000)*10);
+  delay(33);
+  cycle_values.push_back(round(read_cycle()/1000)*10);
+  delay(33);
+  while (cycle_values[cycle_values.size()-1] != cycle_values[cycle_values.size()-2] && cycle_values[cycle_values.size()-2] != cycle_values[cycle_values.size()-3]) {
+    cycle_values.push_back(read_cycle());
+    delay(33);
+  }
+  return cycle_values[cycle_values.size() - 1];
+}
+  
+
 int compute_rumble_index(std::vector<double> arena_map) {
   double maximum = -1;
   int index = 0;
@@ -349,30 +371,27 @@ void make_contact_and_transmit() {
     turn_left(150);
     delay(15);
   }
-  delay(80);
+  delay(100);
   halt();
   Enes100.println("Gotcha!!!");
   lower_arm();
+  delay(1000);
   forwards(150);
   int cycle_percentage = wait_on_contact();
-  double voltage_value = 0, n = 50;
-  for (int i = 0; i < (int)n; i++) {
-    voltage_value += read_cycle(10);
-  }
-  voltage_value /= n;
-  voltage_value /= 1000;
-  cycle_percentage = round(voltage_value) * 10;
   halt();
   Enes100.println("Made contact.");
+  int cycle_percentage = get_actual_cycle_percentage();
   transmit_duty_cycle(cycle_percentage);
   transmit_magnetism(get_site_magnetism());
+  delay(1000);
   raise_arm();
-  backwards(150);
-  delay(500);
-  turn_right(150);
-  delay(500);
+  delay(1000);
+  backwards(200);
+  delay(1000);
+  turn_right(200);
+  delay(1000);
   halt();
-  Enes100.println("Data collected.");
+  Enes100.println("Data collection finished.");
 }
 
 boolean get_site_magnetism(void) {
@@ -386,12 +405,13 @@ void loop() {
   while (!Enes100.updateLocation()) {}
   while (norm(get_heading(mission_site_coords), 2) > MISSION_SITE_APPROACH_TOLERANCE_M) {
     while (!Enes100.updateLocation()) {}
-    update_motors_with_target(mission_site_coords, norm(get_heading(mission_site_coords), 2) * 1000);
+    update_motors_with_target(mission_site_coords, compute_speed_multiplier(get_heading(mission_site_coords)));
   }
   make_contact_and_transmit();
+  Enes100.println("Mapping arena...");
   std::vector<double> arena_map = map_arena();
   int rumble_index = compute_rumble_index(arena_map);
-  std::vector<double> target_coords = {1.0, 0.5 * (1.0 + rumble_index)};
+  std::vector<double> target_coords = {1.0, 0.5 + 0.5*rumble_index};
   while (!Enes100.updateLocation()) {}
   while (norm(get_heading(target_coords), 2) > DISTANCE_TOLERANCE) {
     while (!Enes100.updateLocation()) {}
@@ -400,11 +420,23 @@ void loop() {
   target_coords[0] += 2.0;
   while (!Enes100.updateLocation()) {}
   while (norm(get_heading(target_coords), 2) > DISTANCE_TOLERANCE) {
-    if (norm(get_heading(target_coords), 2) < 0.5) {
-      lower_arm();
-    }
     while (!Enes100.updateLocation()) {}
     update_motors_with_target(target_coords, 500);
+  }
+  std::vector<double> plus_y = {0.0, 1.0};
+  orient_to_heading(plus_y);
+  lower_arm();
+  std::vector<double> limbo_target = {3, 1.5};
+  while (norm(get_heading(limbo_target), 2) > DISTANCE_TOLERANCE) {
+    while (!Enes100.updateLocation()) {}
+    update_motors_with_target(limbo_target, compute_speed_multiplier(get_heading(limbo_target)));
+  }
+  std::vector<double> plus_x = {1.0, 0.0};
+  orient_to_heading(plus_x);
+  limbo_target[0] = 3.8;
+  while (norm(get_heading(limbo_target), 2) > DISTANCE_TOLERANCE) {
+    while (!Enes100.updateLocation()) {}
+    update_motors_with_target(limbo_target, compute_speed_multiplier(get_heading(limbo_target)));
   }
   delay(600000);
 }
