@@ -55,6 +55,12 @@ void setup() {
   Serial.begin(9600);
 }
 
+void magnet_detect(void) {
+   hallcycles++;
+
+   is_magnetic = true;
+ }
+
 double read_cycle() {
   int pwm_value = pulseIn(PWM_PIN, HIGH);
   return pwm_value;
@@ -389,7 +395,7 @@ void make_contact_and_transmit() {
   int cycle_percentage = wait_on_contact();
   halt();
   Enes100.println("Made contact.");
-  int cycle_percentage = get_actual_cycle_percentage();
+  cycle_percentage = get_actual_cycle_percentage();
   transmit_duty_cycle(cycle_percentage);
   transmit_magnetism(get_site_magnetism());
   delay(1000);
