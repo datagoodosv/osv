@@ -26,8 +26,11 @@ using namespace std;
 #define PWM_PIN 16
 #define MISSION_SITE_APPROACH_TOLERANCE_M 0.02
 #define CENTER_TO_SENSOR .2475
+#define HALL_PIN 2
 
 Servo myservo;
+boolean is_magnetic;
+int hallcycles;
 void setup() {
   
   while(!Enes100.begin("DATA TEAM (REAL)", DATA, ARUCO_NUMBER, WIFI_TX, WIFI_RX)) {
@@ -43,6 +46,12 @@ void setup() {
   pinMode(LEFT_ENABLE, OUTPUT);
   pinMode(RIGHT_ENABLE, OUTPUT);
   pinMode(PWM_PIN, INPUT);
+
+  hallcycles = 0;
+  is_magnetic = false;
+  pinMode(HALL_PIN, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(HALL_PIN), magnet_detect, RISING);
+  
   Serial.begin(9600);
 }
 
@@ -329,7 +338,7 @@ int get_actual_cycle_percentage() {
   delay(33);
   cycle_values.push_back(round(read_cycle()/1000)*10);
   delay(33);
-  while (cycle_values[cycle_values.size()-1] != cycle_values[cycle_values.size()-2] && cycle_values[cycle_values.size()-2] != cycle_values[cycle_values.size()-3]) {
+  while (cycle_values[cycle_values.size()-1] != cycle_values[cycle_values.size()-2] || cycle_values[cycle_values.size()-2] != cycle_values[cycle_values.size()-3]) {
     cycle_values.push_back(read_cycle());
     delay(33);
   }
@@ -395,7 +404,16 @@ void make_contact_and_transmit() {
 }
 
 boolean get_site_magnetism(void) {
-  return true;
+  boolean first_magnetism_value = is_magnetic;
+  delay(100);
+  boolean second_magnetism_value = is_magnetic;
+  delay(100);
+  while (is_magnetic != second_magnetism_value || is_magnetic != first_magnetism_value) {
+    first_magnetism_value = second_magnetism_value;
+    second_magnetism_value = is_magnetic;
+    delay(100);
+  }
+  return second_magnetism_value;
 }
 
 void loop() {
